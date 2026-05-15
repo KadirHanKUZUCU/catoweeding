@@ -12,6 +12,8 @@ export function OrganizerEventsPage() {
   const { ready, userId } = useEnsureAnonymousSession();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  /** Varsayılan: tek kart (en son etkinlik). Birden fazla kayıt varsa kullanıcı genişletebilir. */
+  const [showAllEvents, setShowAllEvents] = useState(false);
 
   const load = useCallback(async () => {
     if (!userId) {
@@ -82,14 +84,33 @@ export function OrganizerEventsPage() {
     return <p className="text-center text-sm text-black/55">Oturum hazır değil; sayfayı yenileyin.</p>;
   }
 
+  const visibleRows = showAllEvents || rows.length <= 1 ? rows : [rows[0]!];
+  const hiddenCount = rows.length > 1 ? rows.length - 1 : 0;
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-3xl font-semibold">Etkinliklerim</h1>
         <p className="mt-2 text-sm text-black/55">
-          Bu oturumda oluşturduğunuz etkinlikler. Toplam:{" "}
+          Bu oturumda oluşturduğunuz etkinlik kayıtları. Toplam:{" "}
           <strong className="text-[var(--color-ink)]">{rows.length}</strong>
+          {hiddenCount > 0 && !showAllEvents ? (
+            <>
+              {" "}
+              — burada yalnızca <strong className="text-[var(--color-ink)]">en son</strong> olanı gösteriyoruz; misafir
+              başına kart açılmaz.
+            </>
+          ) : null}
         </p>
+        {hiddenCount > 0 ? (
+          <button
+            type="button"
+            onClick={() => setShowAllEvents((v) => !v)}
+            className="mt-3 text-xs font-semibold text-[var(--color-sage)] underline decoration-[var(--color-sage)]/40 underline-offset-2 hover:text-[var(--color-ink)]"
+          >
+            {showAllEvents ? "Yalnızca son etkinliği göster" : `Tüm etkinlikleri göster (${rows.length})`}
+          </button>
+        ) : null}
       </div>
 
       {rows.length === 0 ? (
@@ -97,8 +118,14 @@ export function OrganizerEventsPage() {
           Henüz etkinlik yok. Ana sayfadan yeni bir etkinlik oluşturabilirsiniz.
         </p>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {rows.map((r) => {
+        <ul
+          className={
+            showAllEvents || rows.length <= 1
+              ? "grid gap-3 sm:grid-cols-2"
+              : "mx-auto grid max-w-xl gap-3 sm:max-w-none"
+          }
+        >
+          {visibleRows.map((r) => {
             const showYonetim = firstYonetim !== null && r.slug === firstYonetim.slug;
             return (
               <li
