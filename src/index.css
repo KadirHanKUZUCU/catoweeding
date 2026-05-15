@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Cormorant Garamond", ui-serif, Georgia, serif;
+  --font-sans: "Outfit", system-ui, sans-serif;
+  --color-ink: #1a1412;
+  --color-parchment: #f6f0e8;
+  --color-blush: #e8c4c4;
+  --color-sage: #8fa395;
+  --color-gold: #c9a962;
+}
+
+html {
+  @apply antialiased;
+}
+
+body {
+  @apply min-h-dvh bg-[var(--color-parchment)] text-[var(--color-ink)] font-sans;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
