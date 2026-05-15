@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useEnsureAnonymousSession } from "../hooks/useEnsureAnonymousSession";
@@ -37,6 +37,14 @@ export function OrganizerEventsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const firstYonetim = useMemo(() => {
+    for (const r of rows) {
+      const local = readMyEvents().find((e) => e.slug === r.slug);
+      if (local) return { slug: r.slug, admin_token: local.admin_token };
+    }
+    return null;
+  }, [rows]);
 
   function askDelete(row: Row) {
     toast("Bu etkinliği kalıcı olarak silmek istiyor musunuz?", {
@@ -91,7 +99,7 @@ export function OrganizerEventsPage() {
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
           {rows.map((r) => {
-            const local = readMyEvents().find((e) => e.slug === r.slug);
+            const showYonetim = firstYonetim !== null && r.slug === firstYonetim.slug;
             return (
               <li
                 key={r.id}
@@ -114,9 +122,9 @@ export function OrganizerEventsPage() {
                   >
                     Misafir
                   </Link>
-                  {local ? (
+                  {showYonetim ? (
                     <Link
-                      to={`/e/${r.slug}/yonetim/${local.admin_token}`}
+                      to={`/e/${r.slug}/yonetim/${firstYonetim.admin_token}`}
                       className="rounded-xl border border-black/15 bg-white px-3 py-1.5 text-xs font-semibold text-black/70"
                     >
                       Yönetim

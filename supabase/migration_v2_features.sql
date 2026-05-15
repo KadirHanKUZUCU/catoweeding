@@ -89,7 +89,7 @@ create trigger memories_moderation_ins
 create or replace function public.sync_event_memory_submission_count()
 returns trigger
 language plpgsql
-security invoker
+security definer
 set search_path = public
 as $$
 begin
