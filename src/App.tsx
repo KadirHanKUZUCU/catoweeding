@@ -26,12 +26,12 @@ function AppShell() {
       </main>
       <footer className="border-t border-black/5 bg-white/30 py-6 text-center text-xs text-black/45">
         <a
-          href="https://kado.app/"
+          href="https://kadirkuzucu.com/"
           target="_blank"
           rel="noopener noreferrer"
           className="font-medium text-black/55 underline decoration-black/20 underline-offset-2 hover:text-[var(--color-ink)]"
         >
-          Geliştirici: Kado App
+          Geliştirici Kado App
         </a>
       </footer>
     </div>
