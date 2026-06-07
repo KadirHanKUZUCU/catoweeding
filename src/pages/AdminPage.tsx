@@ -8,7 +8,7 @@ import { supabase } from "../lib/supabase";
 import { publicUrl } from "../lib/storage";
 import { storagePathIsHeic } from "../lib/storageDisplay";
 import { groupMemoriesByOwner } from "../lib/groupMemoriesByOwner";
-import { getGroupDisplayNote } from "../lib/memoryNote";
+import { filterVisibleMemories, getGroupDisplayNote } from "../lib/memoryNote";
 
 type EventAdmin = Pick<
   EventRow,
@@ -169,6 +169,7 @@ export function AdminPage() {
             <li className="text-sm text-black/45">Henüz içerik yok.</li>
           ) : (
             adminGroups.map((g) => {
+              const visibleMemories = filterVisibleMemories(g.memories);
               const groupNote = getGroupDisplayNote(g.memories);
               return (
               <li
@@ -180,10 +181,10 @@ export function AdminPage() {
                     Misafir {g.guestIndex}
                     <span className="ml-2 text-base font-normal text-black/60">· {g.fullName}</span>
                   </p>
-                  <span className="text-[11px] text-black/45">{g.memories.length} kayıt</span>
+                  <span className="text-[11px] text-black/45">{visibleMemories.length} kayıt</span>
                 </div>
                 <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-                  {g.memories.map((m) => {
+                  {visibleMemories.map((m) => {
                     const ph = m.photo_path ? publicUrl("memories", m.photo_path) : null;
                     const vid = m.video_path ? publicUrl("memories", m.video_path) : null;
                     const heic = m.photo_path ? storagePathIsHeic(m.photo_path) : false;
@@ -246,7 +247,7 @@ export function AdminPage() {
                       <p className="mt-1 text-sm text-black/75">{groupNote}</p>
                     </div>
                   ) : null}
-                  {g.memories.map((m) => (
+                  {visibleMemories.map((m) => (
                     <div key={m.id} className="rounded-xl bg-black/[0.02] px-3 py-2 text-sm">
                       <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-black/45">
                         <time dateTime={m.created_at}>

@@ -18,6 +18,12 @@ FROM ranked AS r
 WHERE m.id = r.id
   AND r.rn > 1;
 
+-- Boş hayalet satırları sil (medya yok, not yok — çift gönderim artığı):
+DELETE FROM public.memories
+WHERE photo_path IS NULL
+  AND video_path IS NULL
+  AND trim(coalesce(note, '')) = '';
+
 -- Yalnızca berltB1nGh etkinliği için:
 -- WITH event_target AS (
 --   SELECT id FROM public.events WHERE slug = 'berltB1nGh'

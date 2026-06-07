@@ -1,5 +1,33 @@
 import type { MemoryRow } from "./database.types";
 
+/** Medya ve notu olmayan çift gönderim artığı. */
+export function isGhostMemory(m: MemoryRow): boolean {
+  return !m.photo_path && !m.video_path && !m.note?.trim();
+}
+
+/** Listede gösterilecek satırlar: hayaletler ve tekrarlayan not-only kayıtlar elenir. */
+export function filterVisibleMemories(memories: MemoryRow[]): MemoryRow[] {
+  const noteKeys = new Set<string>();
+  const kept: MemoryRow[] = [];
+
+  const chronological = [...memories]
+    .filter((m) => !isGhostMemory(m))
+    .sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at));
+
+  for (const m of chronological) {
+    if (m.photo_path || m.video_path) {
+      kept.push(m);
+      continue;
+    }
+    const noteKey = m.note?.trim() || "\0";
+    if (noteKeys.has(noteKey)) continue;
+    noteKeys.add(noteKey);
+    kept.push(m);
+  }
+
+  return kept.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+}
+
 /** Misafir grubunda gösterilecek tek not (aynı metin tekrarlanmaz). */
 export function getGroupDisplayNote(memories: MemoryRow[]): string | null {
   const seen = new Set<string>();
