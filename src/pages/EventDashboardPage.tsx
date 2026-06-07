@@ -10,7 +10,7 @@ import type { EventRow, MemoryRow } from "../lib/database.types";
 import { buildEventPoster, buildEventPosterBlob } from "../lib/qrPoster";
 import { buildGuestInviteMessage } from "../lib/shareMessage";
 import { supabase } from "../lib/supabase";
-import { publicUrl } from "../lib/storage";
+import { memoryPublicUrl, publicUrl } from "../lib/storage";
 import { storagePathIsHeic } from "../lib/storageDisplay";
 
 type EventPublic = Pick<
@@ -468,8 +468,8 @@ function FeedPanel(props: {
               <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
                 {g.memories.map((m) => {
                   const path = m.photo_path;
-                  const src = path ? publicUrl("memories", path) : "";
-                  const vid = m.video_path ? publicUrl("memories", m.video_path) : null;
+                  const src = path ? memoryPublicUrl(path) : "";
+                  const vid = m.video_path ? memoryPublicUrl(m.video_path) : null;
                   if (path && storagePathIsHeic(path)) {
                     return (
                       <li

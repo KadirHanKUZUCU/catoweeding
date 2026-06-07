@@ -6,7 +6,7 @@ import { MediaLightbox, type MediaLightboxState } from "../components/MediaLight
 import { OrganizerPanel } from "../components/OrganizerPanel";
 import type { EventRow, MemoryRow } from "../lib/database.types";
 import { supabase } from "../lib/supabase";
-import { publicUrl } from "../lib/storage";
+import { memoryPublicUrl } from "../lib/storage";
 import { storagePathIsHeic } from "../lib/storageDisplay";
 import { groupMemoriesByOwner } from "../lib/groupMemoriesByOwner";
 import {
@@ -197,8 +197,8 @@ export function AdminPage() {
                 </div>
                 <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
                   {gridMemories.map((m) => {
-                    const ph = m.photo_path ? publicUrl("memories", m.photo_path) : null;
-                    const vid = m.video_path ? publicUrl("memories", m.video_path) : null;
+                    const ph = m.photo_path ? memoryPublicUrl(m.photo_path) : null;
+                    const vid = m.video_path ? memoryPublicUrl(m.video_path) : null;
                     const heic = m.photo_path ? storagePathIsHeic(m.photo_path) : false;
                     if (ph && heic) {
                       return (

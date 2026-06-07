@@ -3,10 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { toast } from "sonner";
 import type { MemoryRow } from "../lib/database.types";
 import { supabase } from "../lib/supabase";
-import { publicUrl } from "../lib/storage";
+import { memoryPublicUrl } from "../lib/storage";
 import { storagePathIsHeic } from "../lib/storageDisplay";
+import { deleteMemoryPaths } from "../lib/memoryStorage";
 import { submitGuestMemories } from "../lib/guestMemorySubmit";
-import { normalizeGuestImageFile } from "../lib/heicConvert";
+import { compressGuestImageFile } from "../lib/compressImage";
 import {
   enqueueOfflineGuestSubmit,
   filesFromOffline,
@@ -15,8 +16,9 @@ import {
 } from "../lib/offlineDrafts";
 import { MediaLightbox, type MediaLightboxState } from "./MediaLightbox";
 import {
-  MAX_PHOTOS_PER_GUEST,
-  MAX_VIDEOS_PER_GUEST,
+  formatMegabytes,
+  MAX_PHOTO_BYTES,
+  MAX_VIDEO_BYTES,
   validateImageFile,
   validateVideoFile,
 } from "../lib/uploads";
@@ -134,10 +136,6 @@ export function GuestPanel(props: {
           toast.error(err);
           continue;
         }
-        if (photoCount + next.length >= MAX_PHOTOS_PER_GUEST) {
-          toast.error(`Bu etkinlikte en fazla ${MAX_PHOTOS_PER_GUEST} fotoğraf ekleyebilirsiniz.`);
-          break;
-        }
         next.push({
           key: nanoid(),
           file,
@@ -158,10 +156,6 @@ export function GuestPanel(props: {
         if (err) {
           toast.error(err);
           continue;
-        }
-        if (videoCount + next.length >= MAX_VIDEOS_PER_GUEST) {
-          toast.error(`Bu etkinlikte en fazla ${MAX_VIDEOS_PER_GUEST} video ekleyebilirsiniz.`);
-          break;
         }
         next.push({ key: nanoid(), file, url: URL.createObjectURL(file) });
       }
@@ -219,15 +213,6 @@ export function GuestPanel(props: {
       return;
     }
 
-    if (photoCount + nPhotos > MAX_PHOTOS_PER_GUEST) {
-      toast.error(`Bu etkinlikte en fazla ${MAX_PHOTOS_PER_GUEST} fotoğraf yükleyebilirsiniz.`);
-      return;
-    }
-    if (videoCount + nVideos > MAX_VIDEOS_PER_GUEST) {
-      toast.error(`Bu etkinlikte en fazla ${MAX_VIDEOS_PER_GUEST} video yükleyebilirsiniz.`);
-      return;
-    }
-
     setBusy(true);
     submitLockRef.current = true;
     const noteVal = note.trim() || null;
@@ -235,7 +220,7 @@ export function GuestPanel(props: {
 
     let photoFiles: File[] = [];
     try {
-      photoFiles = await Promise.all(draftPhotos.map((d) => normalizeGuestImageFile(d.file)));
+      photoFiles = await Promise.all(draftPhotos.map((d) => compressGuestImageFile(d.file)));
     } catch (convErr: unknown) {
       const m = convErr instanceof Error ? convErr.message : "Görsel dönüştürülemedi.";
       toast.error(m);
@@ -307,9 +292,6 @@ export function GuestPanel(props: {
     }
   }
 
-  const remainingPhotoSlots = MAX_PHOTOS_PER_GUEST - photoCount - draftPhotos.length;
-  const remainingVideoSlots = MAX_VIDEOS_PER_GUEST - videoCount - draftVideos.length;
-
   return (
     <div className="flex flex-col gap-8">
       <MediaLightbox state={preview} onClose={() => setPreview(null)} />
@@ -343,9 +325,9 @@ export function GuestPanel(props: {
           <p className="mt-2 whitespace-pre-wrap leading-relaxed">{communityRules}</p>
         </details>
         <p className="text-xs text-black/50">
-          Birden fazla fotoğraf veya video seçebilir, küçük kareye tıklayıp büyük önizleme açabilir, yanlış olanı
-          kaldırabilirsiniz. Kayıtlı: foto {photoCount}/{MAX_PHOTOS_PER_GUEST}, video {videoCount}/
-          {MAX_VIDEOS_PER_GUEST}. Bu gönderi: foto {draftPhotos.length}, video {draftVideos.length}.
+          İstediğiniz kadar fotoğraf ve video seçebilirsiniz (dosya başına foto {formatMegabytes(MAX_PHOTO_BYTES)},
+          video {formatMegabytes(MAX_VIDEO_BYTES)}). Görseller yüklemeden önce otomatik sıkıştırılır. Kayıtlı: foto{" "}
+          {photoCount}, video {videoCount}. Bu gönderi: foto {draftPhotos.length}, video {draftVideos.length}.
         </p>
         <div>
           <label className="text-sm font-medium text-black/65">Ad soyad</label>
@@ -369,7 +351,6 @@ export function GuestPanel(props: {
                 <input
                   type="file"
                   multiple
-                  disabled={remainingPhotoSlots <= 0}
                   className="sr-only"
                   accept=".jpg,.jpeg,.png,.gif,.webp,.heic,.heif,image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif"
                   onChange={(e) => {
@@ -379,11 +360,6 @@ export function GuestPanel(props: {
                 />
               </label>
             </div>
-            {remainingPhotoSlots <= 0 ? (
-              <p className="mt-1 text-xs text-amber-800/90">Fotoğraf kotası doldu.</p>
-            ) : (
-              <p className="mt-1 text-xs text-black/45">En fazla {remainingPhotoSlots} fotoğraf daha ekleyebilirsiniz.</p>
-            )}
             {draftPhotos.length > 0 ? (
               <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {draftPhotos.map((d) => (
@@ -449,7 +425,6 @@ export function GuestPanel(props: {
                 <input
                   type="file"
                   multiple
-                  disabled={remainingVideoSlots <= 0}
                   className="sr-only"
                   accept=".mp4,.webm,.mov,.m4v,video/mp4,video/webm,video/quicktime"
                   onChange={(e) => {
@@ -459,11 +434,6 @@ export function GuestPanel(props: {
                 />
               </label>
             </div>
-            {remainingVideoSlots <= 0 ? (
-              <p className="mt-1 text-xs text-amber-800/90">Video kotası doldu.</p>
-            ) : (
-              <p className="mt-1 text-xs text-black/45">En fazla {remainingVideoSlots} video daha ekleyebilirsiniz.</p>
-            )}
             {draftVideos.length > 0 ? (
               <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {draftVideos.map((v) => (
@@ -592,7 +562,7 @@ function GuestMineGroup(props: {
   async function performDeleteAll() {
     for (const m of sorted) {
       const paths = [m.photo_path, m.video_path].filter(Boolean) as string[];
-      if (paths.length) await supabase.storage.from("memories").remove(paths);
+      if (paths.length) await deleteMemoryPaths(supabase, paths);
       const { error } = await supabase.from("memories").delete().eq("id", m.id);
       if (error) {
         toast.error(error.message);
@@ -605,7 +575,7 @@ function GuestMineGroup(props: {
 
   async function removeMemoryRow(m: MemoryRow) {
     const paths = [m.photo_path, m.video_path].filter(Boolean) as string[];
-    if (paths.length) await supabase.storage.from("memories").remove(paths);
+    if (paths.length) await deleteMemoryPaths(supabase, paths);
     const { error } = await supabase.from("memories").delete().eq("id", m.id);
     if (error) toast.error(error.message);
     else {
@@ -702,14 +672,14 @@ function MineThumb(props: {
   onPreview: (s: MediaLightboxState) => void;
 }) {
   const { memory, onChanged, onPreview } = props;
-  const ph = memory.photo_path ? publicUrl("memories", memory.photo_path) : null;
-  const vid = memory.video_path ? publicUrl("memories", memory.video_path) : null;
+  const ph = memory.photo_path ? memoryPublicUrl(memory.photo_path) : null;
+  const vid = memory.video_path ? memoryPublicUrl(memory.video_path) : null;
   const heicPhoto = memory.photo_path ? storagePathIsHeic(memory.photo_path) : false;
   const [photoBroken, setPhotoBroken] = useState(false);
 
   async function performRemove() {
     const paths = [memory.photo_path, memory.video_path].filter(Boolean) as string[];
-    if (paths.length) await supabase.storage.from("memories").remove(paths);
+    if (paths.length) await deleteMemoryPaths(supabase, paths);
     const { error } = await supabase.from("memories").delete().eq("id", memory.id);
     if (error) {
       toast.error(error.message);
