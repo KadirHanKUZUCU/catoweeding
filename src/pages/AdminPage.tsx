@@ -11,8 +11,8 @@ import { storagePathIsHeic } from "../lib/storageDisplay";
 import { groupMemoriesByOwner } from "../lib/groupMemoriesByOwner";
 import {
   filterVisibleMemories,
-  getMediaMetaRows,
-  getNoteOnlySections,
+  getFooterMetaRows,
+  getNoteDisplayBlocks,
   hasMemoryMedia,
 } from "../lib/memoryNote";
 
@@ -177,8 +177,8 @@ export function AdminPage() {
             adminGroups.map((g) => {
               const visibleMemories = filterVisibleMemories(g.memories);
               const gridMemories = visibleMemories.filter(hasMemoryMedia);
-              const noteSections = getNoteOnlySections(g.memories);
-              const mediaMetaRows = getMediaMetaRows(g.memories);
+              const noteBlocks = getNoteDisplayBlocks(g.memories);
+              const footerMetaRows = getFooterMetaRows(g.memories);
               return (
               <li
                 key={g.ownerId}
@@ -239,19 +239,22 @@ export function AdminPage() {
                   })}
                 </ul>
                 <div className="mt-4 space-y-3 border-t border-black/10 pt-3">
-                  {noteSections.map(({ note, memory }) => (
-                    <div key={memory.id} className="rounded-xl bg-black/[0.02] px-3 py-2 text-sm">
+                  {noteBlocks.map(({ note, memory }) => (
+                    <div key={`note-${memory.id}`} className="rounded-xl bg-black/[0.02] px-3 py-2 text-sm">
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-black/45">Not</p>
                       <p className="mt-1 text-sm text-black/75">{note}</p>
-                      <AdminMemoryMeta memory={memory} onModerate={(id, status) => void modStatus(id, status)} />
+                      {gridMemories.length === 0 ? (
+                        <AdminMemoryMeta memory={memory} onModerate={(id, status) => void modStatus(id, status)} />
+                      ) : null}
                     </div>
                   ))}
-                  {mediaMetaRows.map((m) => (
-                    <div key={m.id} className="rounded-xl bg-black/[0.02] px-3 py-2 text-sm">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-black/45">Medya</p>
-                      <AdminMemoryMeta memory={m} onModerate={(id, status) => void modStatus(id, status)} />
-                    </div>
-                  ))}
+                  {gridMemories.length > 0
+                    ? footerMetaRows.map((m) => (
+                        <div key={m.id} className="rounded-xl bg-black/[0.02] px-3 py-2 text-sm">
+                          <AdminMemoryMeta memory={m} onModerate={(id, status) => void modStatus(id, status)} />
+                        </div>
+                      ))
+                    : null}
                 </div>
               </li>
             );

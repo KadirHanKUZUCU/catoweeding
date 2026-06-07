@@ -1,28 +1,34 @@
--- Çift gönderim temizliği — Supabase SQL Editor'da 1. adımı çalıştırın.
--- Not karşılaştırması: küçük harf + fazla boşluk temizlenir.
+-- Çift gönderim temizliği — Supabase SQL Editor'da sırayla çalıştırın.
+-- ÖNEMLİ: Önce 1. adım (notları silmeden çift kayıtları temizler).
 
--- 1) Tekrarlayan not-only kayıtlarını sil (en eskisini bırak)
-WITH ranked AS (
+-- 1) Aynı misafirin 30 sn içindeki çift gönderimlerini sil (en eskisini bırak)
+--    Not boş olsa bile (daha önce NULL yapılmış tekrarlar dahil)
+WITH ordered AS (
   SELECT
     id,
-    ROW_NUMBER() OVER (
-      PARTITION BY
-        event_id,
-        owner_id,
-        lower(trim(regexp_replace(coalesce(note, ''), '\s+', ' ', 'g')))
+    created_at,
+    LAG(created_at) OVER (
+      PARTITION BY event_id, owner_id
       ORDER BY created_at ASC
-    ) AS rn
+    ) AS prev_at,
+    LAG(lower(trim(regexp_replace(coalesce(note, ''), '\s+', ' ', 'g')))) OVER (
+      PARTITION BY event_id, owner_id
+      ORDER BY created_at ASC
+    ) AS prev_note,
+    lower(trim(regexp_replace(coalesce(note, ''), '\s+', ' ', 'g'))) AS note_key
   FROM public.memories
-  WHERE photo_path IS NULL
-    AND video_path IS NULL
-    AND trim(coalesce(note, '')) <> ''
 )
 DELETE FROM public.memories AS m
-USING ranked AS r
-WHERE m.id = r.id
-  AND r.rn > 1;
+USING ordered AS o
+WHERE m.id = o.id
+  AND o.prev_at IS NOT NULL
+  AND o.created_at - o.prev_at <= interval '30 seconds'
+  AND (
+    o.note_key = ''
+    OR o.note_key = coalesce(o.prev_note, '')
+  );
 
--- 2) Medyalı satırlarda tekrarlayan not metnini temizle (ilk satırda kalır)
+-- 2) Aynı not metnine sahip tekrarlayan kayıtları sil (en eskisini bırak)
 WITH ranked AS (
   SELECT
     id,
@@ -35,11 +41,9 @@ WITH ranked AS (
     ) AS rn
   FROM public.memories
   WHERE trim(coalesce(note, '')) <> ''
-    AND (photo_path IS NOT NULL OR video_path IS NOT NULL)
 )
-UPDATE public.memories AS m
-SET note = NULL
-FROM ranked AS r
+DELETE FROM public.memories AS m
+USING ranked AS r
 WHERE m.id = r.id
   AND r.rn > 1;
 
@@ -49,7 +53,7 @@ WHERE photo_path IS NULL
   AND video_path IS NULL
   AND trim(coalesce(note, '')) = '';
 
--- Kontrol: aynı misafir + aynı not kaç satır kaldı?
--- SELECT owner_id, note, count(*) FROM public.memories
--- WHERE photo_path IS NULL AND video_path IS NULL AND trim(coalesce(note,'')) <> ''
--- GROUP BY owner_id, lower(trim(note)) HAVING count(*) > 1;
+-- Kontrol:
+-- SELECT owner_id, note, photo_path, video_path, created_at
+-- FROM public.memories
+-- ORDER BY owner_id, created_at;
