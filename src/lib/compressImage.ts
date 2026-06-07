@@ -1,8 +1,12 @@
 import { normalizeGuestImageFile } from "./heicConvert";
 
-const MAX_EDGE = 1920;
-const JPEG_QUALITY = 0.82;
-const SKIP_BELOW_BYTES = 350_000;
+/** Supabase 1 GB için daha agresif sıkıştırma (VITE_FREE_STORAGE_MODE=true). */
+function compressSettings() {
+  const free = import.meta.env.VITE_FREE_STORAGE_MODE === "true";
+  return free
+    ? { maxEdge: 1280, quality: 0.72, skipBelow: 250_000 }
+    : { maxEdge: 1920, quality: 0.82, skipBelow: 350_000 };
+}
 
 function loadImageFromFile(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -20,12 +24,12 @@ function loadImageFromFile(file: File): Promise<HTMLImageElement> {
   });
 }
 
-async function canvasToJpegFile(canvas: HTMLCanvasElement, name: string): Promise<File> {
+async function canvasToJpegFile(canvas: HTMLCanvasElement, name: string, quality: number): Promise<File> {
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (b) => (b ? resolve(b) : reject(new Error("Sıkıştırma başarısız."))),
       "image/jpeg",
-      JPEG_QUALITY,
+      quality,
     );
   });
   const base = name.replace(/\.[^.]+$/i, "") || "foto";
@@ -34,13 +38,14 @@ async function canvasToJpegFile(canvas: HTMLCanvasElement, name: string): Promis
 
 /** Yüklemeden önce fotoğrafı küçültür (depolama tasarrufu). */
 export async function compressGuestImageFile(file: File): Promise<File> {
+  const { maxEdge, quality, skipBelow } = compressSettings();
   const normalized = await normalizeGuestImageFile(file);
   if (normalized.type === "image/gif") return normalized;
-  if (normalized.size <= SKIP_BELOW_BYTES) return normalized;
+  if (normalized.size <= skipBelow) return normalized;
 
   try {
     const img = await loadImageFromFile(normalized);
-    const scale = Math.min(1, MAX_EDGE / Math.max(img.width, img.height));
+    const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
     const w = Math.max(1, Math.round(img.width * scale));
     const h = Math.max(1, Math.round(img.height * scale));
     const canvas = document.createElement("canvas");
@@ -49,7 +54,7 @@ export async function compressGuestImageFile(file: File): Promise<File> {
     const ctx = canvas.getContext("2d");
     if (!ctx) return normalized;
     ctx.drawImage(img, 0, 0, w, h);
-    const out = await canvasToJpegFile(canvas, normalized.name);
+    const out = await canvasToJpegFile(canvas, normalized.name, quality);
     return out.size < normalized.size ? out : normalized;
   } catch {
     return normalized;
