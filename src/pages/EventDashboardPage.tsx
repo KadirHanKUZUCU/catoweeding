@@ -8,6 +8,7 @@ import { groupMemoriesByOwner } from "../lib/groupMemoriesByOwner";
 import { copyTextRobust } from "../lib/clipboard";
 import type { EventRow, MemoryRow } from "../lib/database.types";
 import { buildEventPoster, buildEventPosterBlob } from "../lib/qrPoster";
+import { buildGuestInviteMessage } from "../lib/shareMessage";
 import { supabase } from "../lib/supabase";
 import { publicUrl } from "../lib/storage";
 import { storagePathIsHeic } from "../lib/storageDisplay";
@@ -43,7 +44,12 @@ export function EventDashboardPage() {
 
   const shareText = useMemo(() => {
     if (!event || !guestEventUrl) return "";
-    return `${event.couple_names}\n\nAnı bırakmak için (QR ile aynı bağlantı):\n${guestEventUrl}`;
+    return buildGuestInviteMessage({
+      coupleNames: event.couple_names,
+      guestUrl: guestEventUrl,
+      welcomeMessage: event.welcome_message,
+      inviteCode: event.invite_code,
+    });
   }, [event, guestEventUrl]);
 
   const load = useCallback(async () => {
@@ -118,7 +124,11 @@ export function EventDashboardPage() {
           const file = new File([blob], `qr-${slug}.png`, { type: "image/png" });
           if (navigator.canShare?.({ files: [file] })) {
             try {
-              await navigator.share({ files: [file] });
+              await navigator.share({
+                files: [file],
+                title: event.couple_names,
+                text: shareText,
+              });
               return;
             } catch (e) {
               if ((e as Error).name === "AbortError") return;

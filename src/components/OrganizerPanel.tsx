@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { EventRow, MemoryRow } from "../lib/database.types";
 import { supabase } from "../lib/supabase";
+import { buildGuestInviteMessage } from "../lib/shareMessage";
 import { zipMemoriesFromRows } from "../lib/zipEventMemories";
 
 type Ev = Pick<
@@ -29,14 +30,12 @@ export function OrganizerPanel(props: {
 }) {
   const { slug, event, memories, guestEventUrl, adminToken, onReload } = props;
   const [rulesDraft, setRulesDraft] = useState(event.community_rules ?? "");
-  const [modDraft, setModDraft] = useState(Boolean(event.moderation_enabled));
   const [inviteDraft, setInviteDraft] = useState(event.invite_code ?? "");
   const [saving, setSaving] = useState(false);
   const [zipBusy, setZipBusy] = useState(false);
 
   useEffect(() => {
     setRulesDraft(event.community_rules ?? "");
-    setModDraft(Boolean(event.moderation_enabled));
     setInviteDraft(event.invite_code ?? "");
   }, [event]);
 
@@ -62,7 +61,7 @@ export function OrganizerPanel(props: {
       p_slug: slug,
       p_admin_token: adminToken,
       p_community_rules: rulesDraft,
-      p_moderation_enabled: modDraft,
+      p_moderation_enabled: false,
       p_invite_code: inviteDraft.trim() || null,
       p_clear_invite: clearInvite,
     });
@@ -108,14 +107,14 @@ export function OrganizerPanel(props: {
   }
 
   function mailInvite() {
-    const code = (event.invite_code ?? "").trim();
+    const body = buildGuestInviteMessage({
+      coupleNames: event.couple_names,
+      guestUrl: guestEventUrl,
+      welcomeMessage: event.welcome_message,
+      inviteCode: event.invite_code,
+    });
     const subject = encodeURIComponent(`${event.couple_names} — davet`);
-    const body = encodeURIComponent(
-      `Merhaba,\n\nAşağıdaki bağlantıdan anı (fotoğraf, not, video) bırakabilirsiniz:\n${guestEventUrl}\n` +
-        (code ? `\nDavet kodu: ${code}\n(Bağlantıya ?davet=${encodeURIComponent(code)} ekleyerek de girebilirsiniz.)\n` : "") +
-        `\nSaygılarımızla`,
-    );
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    window.location.href = `mailto:?subject=${subject}&body=${encodeURIComponent(body)}`;
   }
 
   return (
@@ -199,10 +198,6 @@ export function OrganizerPanel(props: {
           value={rulesDraft}
           onChange={(e) => setRulesDraft(e.target.value)}
         />
-        <label className="mt-4 flex items-center gap-2 text-sm text-black/70">
-          <input type="checkbox" checked={modDraft} onChange={(e) => setModDraft(e.target.checked)} />
-          Yeni fotoğraf / videolarda yönetici onayı iste
-        </label>
         <label className="mt-3 block text-xs font-medium text-black/55">Davet kodu (boş bırakırsanız herkes girebilir)</label>
         <input
           className="mt-1 w-full rounded-2xl border border-black/10 bg-white px-3 py-2 text-sm"
