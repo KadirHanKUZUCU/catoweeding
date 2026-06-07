@@ -23,6 +23,8 @@ export default defineConfig({
         icons: [{ src: "/favicon.svg", sizes: "512x512", type: "image/svg+xml", purpose: "any maskable" }],
       },
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
         navigateFallback: "index.html",
         navigateFallbackDenylist: [/^\/api\//],
         globPatterns: ["**/*.{js,css,html,svg,ico}"],

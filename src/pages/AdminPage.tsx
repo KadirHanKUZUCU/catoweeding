@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
+import { AdminMemoryMeta } from "../components/AdminMemoryMeta";
 import { MediaLightbox, type MediaLightboxState } from "../components/MediaLightbox";
 import { OrganizerPanel } from "../components/OrganizerPanel";
 import type { EventRow, MemoryRow } from "../lib/database.types";
@@ -10,8 +11,9 @@ import { storagePathIsHeic } from "../lib/storageDisplay";
 import { groupMemoriesByOwner } from "../lib/groupMemoriesByOwner";
 import {
   filterVisibleMemories,
-  getGroupDisplayNote,
-  getMetaDisplayMemories,
+  getMediaMetaRows,
+  getNoteOnlySections,
+  hasMemoryMedia,
 } from "../lib/memoryNote";
 
 type EventAdmin = Pick<
@@ -174,8 +176,9 @@ export function AdminPage() {
           ) : (
             adminGroups.map((g) => {
               const visibleMemories = filterVisibleMemories(g.memories);
-              const metaRows = getMetaDisplayMemories(g.memories);
-              const groupNote = getGroupDisplayNote(g.memories);
+              const gridMemories = visibleMemories.filter(hasMemoryMedia);
+              const noteSections = getNoteOnlySections(g.memories);
+              const mediaMetaRows = getMediaMetaRows(g.memories);
               return (
               <li
                 key={g.ownerId}
@@ -189,20 +192,10 @@ export function AdminPage() {
                   <span className="text-[11px] text-black/45">{visibleMemories.length} kayıt</span>
                 </div>
                 <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-                  {visibleMemories.map((m) => {
+                  {gridMemories.map((m) => {
                     const ph = m.photo_path ? publicUrl("memories", m.photo_path) : null;
                     const vid = m.video_path ? publicUrl("memories", m.video_path) : null;
                     const heic = m.photo_path ? storagePathIsHeic(m.photo_path) : false;
-                    if (!ph && !vid) {
-                      return (
-                        <li
-                          key={m.id}
-                          className="flex aspect-square items-center justify-center rounded-xl border border-dashed border-black/15 bg-black/[0.03] text-[10px] text-black/45"
-                        >
-                          Not
-                        </li>
-                      );
-                    }
                     if (ph && heic) {
                       return (
                         <li
@@ -246,44 +239,17 @@ export function AdminPage() {
                   })}
                 </ul>
                 <div className="mt-4 space-y-3 border-t border-black/10 pt-3">
-                  {groupNote ? (
-                    <div className="rounded-xl bg-black/[0.02] px-3 py-2 text-sm">
+                  {noteSections.map(({ note, memory }) => (
+                    <div key={memory.id} className="rounded-xl bg-black/[0.02] px-3 py-2 text-sm">
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-black/45">Not</p>
-                      <p className="mt-1 text-sm text-black/75">{groupNote}</p>
+                      <p className="mt-1 text-sm text-black/75">{note}</p>
+                      <AdminMemoryMeta memory={memory} onModerate={(id, status) => void modStatus(id, status)} />
                     </div>
-                  ) : null}
-                  {metaRows.map((m) => (
+                  ))}
+                  {mediaMetaRows.map((m) => (
                     <div key={m.id} className="rounded-xl bg-black/[0.02] px-3 py-2 text-sm">
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-black/45">
-                        <time dateTime={m.created_at}>
-                          {new Date(m.created_at).toLocaleString("tr-TR")}
-                        </time>
-                        <span className="rounded-full bg-black/10 px-2 py-0.5 font-medium text-black/70">
-                          {(m.moderation_status ?? "approved") === "pending"
-                            ? "Onay bekliyor"
-                            : (m.moderation_status ?? "approved") === "hidden"
-                              ? "Gizli"
-                              : "Yayında"}
-                        </span>
-                      </div>
-                      {(m.moderation_status ?? "approved") === "pending" ? (
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            className="rounded-lg bg-emerald-800 px-2 py-1 text-[11px] font-semibold text-white"
-                            onClick={() => void modStatus(m.id, "approved")}
-                          >
-                            Onayla
-                          </button>
-                          <button
-                            type="button"
-                            className="rounded-lg border border-red-300 bg-white px-2 py-1 text-[11px] font-semibold text-red-700"
-                            onClick={() => void modStatus(m.id, "hidden")}
-                          >
-                            Gizle
-                          </button>
-                        </div>
-                      ) : null}
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-black/45">Medya</p>
+                      <AdminMemoryMeta memory={m} onModerate={(id, status) => void modStatus(id, status)} />
                     </div>
                   ))}
                 </div>

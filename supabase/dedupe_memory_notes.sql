@@ -1,11 +1,15 @@
--- Çift gönderim temizliği — Supabase SQL Editor'da sırayla çalıştırın.
+-- Çift gönderim temizliği — Supabase SQL Editor'da 1. adımı çalıştırın.
+-- Not karşılaştırması: küçük harf + fazla boşluk temizlenir.
 
--- 1) Aynı misafirin tekrarlayan not-only kayıtlarını sil (en eskisini bırak)
+-- 1) Tekrarlayan not-only kayıtlarını sil (en eskisini bırak)
 WITH ranked AS (
   SELECT
     id,
     ROW_NUMBER() OVER (
-      PARTITION BY event_id, owner_id, trim(coalesce(note, ''))
+      PARTITION BY
+        event_id,
+        owner_id,
+        lower(trim(regexp_replace(coalesce(note, ''), '\s+', ' ', 'g')))
       ORDER BY created_at ASC
     ) AS rn
   FROM public.memories
@@ -23,7 +27,10 @@ WITH ranked AS (
   SELECT
     id,
     ROW_NUMBER() OVER (
-      PARTITION BY event_id, owner_id, trim(coalesce(note, ''))
+      PARTITION BY
+        event_id,
+        owner_id,
+        lower(trim(regexp_replace(coalesce(note, ''), '\s+', ' ', 'g')))
       ORDER BY created_at ASC
     ) AS rn
   FROM public.memories
@@ -42,24 +49,7 @@ WHERE photo_path IS NULL
   AND video_path IS NULL
   AND trim(coalesce(note, '')) = '';
 
--- Yalnızca berltB1nGh etkinliği için (1. adım):
--- WITH event_target AS (
---   SELECT id FROM public.events WHERE slug = 'berltB1nGh'
--- ),
--- ranked AS (
---   SELECT
---     m.id,
---     ROW_NUMBER() OVER (
---       PARTITION BY m.event_id, m.owner_id, trim(coalesce(m.note, ''))
---       ORDER BY m.created_at ASC
---     ) AS rn
---   FROM public.memories AS m
---   INNER JOIN event_target AS e ON m.event_id = e.id
---   WHERE m.photo_path IS NULL
---     AND m.video_path IS NULL
---     AND trim(coalesce(m.note, '')) <> ''
--- )
--- DELETE FROM public.memories AS m
--- USING ranked AS r
--- WHERE m.id = r.id
---   AND r.rn > 1;
+-- Kontrol: aynı misafir + aynı not kaç satır kaldı?
+-- SELECT owner_id, note, count(*) FROM public.memories
+-- WHERE photo_path IS NULL AND video_path IS NULL AND trim(coalesce(note,'')) <> ''
+-- GROUP BY owner_id, lower(trim(note)) HAVING count(*) > 1;
