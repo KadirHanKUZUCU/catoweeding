@@ -8,6 +8,7 @@ import { supabase } from "../lib/supabase";
 import { publicUrl } from "../lib/storage";
 import { storagePathIsHeic } from "../lib/storageDisplay";
 import { groupMemoriesByOwner } from "../lib/groupMemoriesByOwner";
+import { getGroupDisplayNote } from "../lib/memoryNote";
 
 type EventAdmin = Pick<
   EventRow,
@@ -167,7 +168,9 @@ export function AdminPage() {
           {adminGroups.length === 0 ? (
             <li className="text-sm text-black/45">Henüz içerik yok.</li>
           ) : (
-            adminGroups.map((g) => (
+            adminGroups.map((g) => {
+              const groupNote = getGroupDisplayNote(g.memories);
+              return (
               <li
                 key={g.ownerId}
                 className="rounded-2xl border border-black/10 bg-white/85 p-4 shadow-[0_8px_30px_rgba(0,0,0,0.04)]"
@@ -237,6 +240,12 @@ export function AdminPage() {
                   })}
                 </ul>
                 <div className="mt-4 space-y-3 border-t border-black/10 pt-3">
+                  {groupNote ? (
+                    <div className="rounded-xl bg-black/[0.02] px-3 py-2 text-sm">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-black/45">Not</p>
+                      <p className="mt-1 text-sm text-black/75">{groupNote}</p>
+                    </div>
+                  ) : null}
                   {g.memories.map((m) => (
                     <div key={m.id} className="rounded-xl bg-black/[0.02] px-3 py-2 text-sm">
                       <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-black/45">
@@ -251,7 +260,6 @@ export function AdminPage() {
                               : "Yayında"}
                         </span>
                       </div>
-                      {m.note ? <p className="mt-1 text-sm text-black/75">{m.note}</p> : null}
                       {(m.moderation_status ?? "approved") === "pending" ? (
                         <div className="mt-2 flex flex-wrap gap-2">
                           <button
@@ -274,7 +282,8 @@ export function AdminPage() {
                   ))}
                 </div>
               </li>
-            ))
+            );
+            })
           )}
         </ul>
       </section>

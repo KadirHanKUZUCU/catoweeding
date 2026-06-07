@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useEnsureAnonymousSession } from "../hooks/useEnsureAnonymousSession";
@@ -15,9 +15,11 @@ export function CreateEventPage() {
   );
   const [bgFile, setBgFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const submitLockRef = useRef(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submitLockRef.current || busy) return;
     if (!ready || !userId) {
       toast.error("Oturum hazırlanıyor, bir saniye sonra tekrar deneyin.");
       return;
@@ -27,6 +29,7 @@ export function CreateEventPage() {
       return;
     }
     setBusy(true);
+    submitLockRef.current = true;
     const slug = nanoid(10);
     const { data: ev, error } = await supabase
       .from("events")
@@ -41,6 +44,7 @@ export function CreateEventPage() {
 
     if (error || !ev) {
       toast.error(error?.message ?? "Etkinlik oluşturulamadı.");
+      submitLockRef.current = false;
       setBusy(false);
       return;
     }
@@ -49,6 +53,7 @@ export function CreateEventPage() {
       const maxBytes = 8 * 1024 * 1024;
       if (bgFile.size > maxBytes) {
         toast.error("Arka plan görseli en fazla 8 MB olabilir.");
+        submitLockRef.current = false;
         setBusy(false);
         return;
       }
@@ -58,6 +63,7 @@ export function CreateEventPage() {
         const { error: authErr } = await supabase.auth.signInAnonymously();
         if (authErr) {
           toast.error("Yükleme için oturum açılamadı: " + authErr.message);
+          submitLockRef.current = false;
           setBusy(false);
           return;
         }
@@ -88,6 +94,7 @@ export function CreateEventPage() {
           description:
             "Supabase’de «event-assets» bucket’ı var mı? SQL’de event_assets UPDATE/DELETE politikaları uygulandı mı? (supabase/patch_event_assets_storage.sql)",
         });
+        submitLockRef.current = false;
         setBusy(false);
         return;
       }
@@ -98,6 +105,7 @@ export function CreateEventPage() {
       });
       if (rpcErr) {
         toast.error("Arka plan kaydı tamamlanamadı: " + rpcErr.message);
+        submitLockRef.current = false;
         setBusy(false);
         return;
       }
@@ -113,6 +121,7 @@ export function CreateEventPage() {
       description: "Organizatör paneli açıldı. Tam yönetim için «Etkinliklerim» veya kayıtlı yönetim bağlantınızı kullanın.",
     });
     sessionStorage.setItem(`admin:${ev.slug}`, ev.admin_token);
+    submitLockRef.current = false;
     setBusy(false);
     navigate(`/e/${ev.slug}/panel`);
   }

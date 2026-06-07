@@ -52,6 +52,7 @@ export function GuestPanel(props: {
   const [offlineQueued, setOfflineQueued] = useState(0);
 
   const assetsRef = useRef<{ photos: DraftPhoto[]; videos: DraftVideo[] }>({ photos: [], videos: [] });
+  const submitLockRef = useRef(false);
   useEffect(() => {
     assetsRef.current = { photos: draftPhotos, videos: draftVideos };
   }, [draftPhotos, draftVideos]);
@@ -194,6 +195,7 @@ export function GuestPanel(props: {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (submitLockRef.current || busy) return;
     if (!userId) {
       toast.error("Oturum hazır değil. Sayfayı yenileyin.", {
         description: "Misafir oturumu (anonim) oluşmadıysa Supabase Anonymous açık olmalı.",
@@ -221,6 +223,7 @@ export function GuestPanel(props: {
     }
 
     setBusy(true);
+    submitLockRef.current = true;
     const noteVal = note.trim() || null;
     const nameVal = fullName.trim();
 
@@ -230,6 +233,7 @@ export function GuestPanel(props: {
     } catch (convErr: unknown) {
       const m = convErr instanceof Error ? convErr.message : "Görsel dönüştürülemedi.";
       toast.error(m);
+      submitLockRef.current = false;
       setBusy(false);
       return;
     }
@@ -292,6 +296,7 @@ export function GuestPanel(props: {
         toast.error(formatSupabaseError(err));
       }
     } finally {
+      submitLockRef.current = false;
       setBusy(false);
     }
   }

@@ -34,6 +34,8 @@ export async function submitGuestMemories(inp: GuestMemorySubmitInput): Promise<
     return { photoRows: 0, videoRows: 0, noteOnly: true };
   }
 
+  let noteAttached = false;
+
   for (const file of photoFiles) {
     const folder = nanoid();
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
@@ -44,11 +46,14 @@ export async function submitGuestMemories(inp: GuestMemorySubmitInput): Promise<
     });
     if (pErr) throw pErr;
 
+    const rowNote = !noteAttached && noteTrimmed ? noteTrimmed : null;
+    if (rowNote) noteAttached = true;
+
     const { error: ins } = await supabase.from("memories").insert({
       event_id: eventId,
       owner_id: userId,
       full_name: fullName,
-      note: noteTrimmed,
+      note: rowNote,
       photo_path: photoPath,
       video_path: null,
     });
@@ -65,11 +70,14 @@ export async function submitGuestMemories(inp: GuestMemorySubmitInput): Promise<
     });
     if (vErr) throw vErr;
 
+    const rowNote = !noteAttached && noteTrimmed ? noteTrimmed : null;
+    if (rowNote) noteAttached = true;
+
     const { error: ins } = await supabase.from("memories").insert({
       event_id: eventId,
       owner_id: userId,
       full_name: fullName,
-      note: noteTrimmed,
+      note: rowNote,
       photo_path: null,
       video_path: videoPath,
     });
