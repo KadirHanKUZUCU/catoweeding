@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { AdminMemoryMeta } from "../components/AdminMemoryMeta";
+import { AdminMemoryRow } from "../components/AdminMemoryMeta";
 import { MediaLightbox, type MediaLightboxState } from "../components/MediaLightbox";
 import { OrganizerPanel } from "../components/OrganizerPanel";
 import type { EventRow, MemoryRow } from "../lib/database.types";
@@ -238,22 +238,25 @@ export function AdminPage() {
                     );
                   })}
                 </ul>
-                <div className="mt-4 space-y-3 border-t border-black/10 pt-3">
+                <div className="mt-4 space-y-2 border-t border-black/10 pt-3">
                   {noteBlocks.map(({ note, memory }) => (
-                    <div key={`note-${memory.id}`} className="rounded-xl bg-black/[0.02] px-3 py-2 text-sm">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-black/45">Not</p>
-                      <p className="mt-1 text-sm text-black/75">{note}</p>
-                      {gridMemories.length === 0 ? (
-                        <AdminMemoryMeta memory={memory} onModerate={(id, status) => void modStatus(id, status)} />
-                      ) : null}
-                    </div>
+                    <AdminMemoryRow
+                      key={`note-${memory.id}`}
+                      memory={memory}
+                      note={note}
+                      onModerate={(id, status) => void modStatus(id, status)}
+                    />
                   ))}
                   {gridMemories.length > 0
-                    ? footerMetaRows.map((m) => (
-                        <div key={m.id} className="rounded-xl bg-black/[0.02] px-3 py-2 text-sm">
-                          <AdminMemoryMeta memory={m} onModerate={(id, status) => void modStatus(id, status)} />
-                        </div>
-                      ))
+                    ? footerMetaRows
+                        .filter((m) => !noteBlocks.some((b) => b.memory.id === m.id))
+                        .map((m) => (
+                          <AdminMemoryRow
+                            key={m.id}
+                            memory={m}
+                            onModerate={(id, status) => void modStatus(id, status)}
+                          />
+                        ))
                     : null}
                 </div>
               </li>
