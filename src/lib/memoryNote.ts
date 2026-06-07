@@ -28,6 +28,18 @@ export function filterVisibleMemories(memories: MemoryRow[]): MemoryRow[] {
   return kept.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
 }
 
+/** Zaman damgası / moderasyon satırı: not-only grupta tek, medyada dosya başına. */
+export function getMetaDisplayMemories(memories: MemoryRow[]): MemoryRow[] {
+  const visible = filterVisibleMemories(memories);
+  const mediaRows = visible.filter((m) => m.photo_path || m.video_path);
+  if (mediaRows.length > 0) return mediaRows;
+  if (visible.length === 0) return [];
+  const oldest = visible.reduce((a, b) =>
+    +new Date(a.created_at) <= +new Date(b.created_at) ? a : b,
+  );
+  return [oldest];
+}
+
 /** Misafir grubunda gösterilecek tek not (aynı metin tekrarlanmaz). */
 export function getGroupDisplayNote(memories: MemoryRow[]): string | null {
   const seen = new Set<string>();

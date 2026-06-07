@@ -8,7 +8,11 @@ import { supabase } from "../lib/supabase";
 import { publicUrl } from "../lib/storage";
 import { storagePathIsHeic } from "../lib/storageDisplay";
 import { groupMemoriesByOwner } from "../lib/groupMemoriesByOwner";
-import { filterVisibleMemories, getGroupDisplayNote } from "../lib/memoryNote";
+import {
+  filterVisibleMemories,
+  getGroupDisplayNote,
+  getMetaDisplayMemories,
+} from "../lib/memoryNote";
 
 type EventAdmin = Pick<
   EventRow,
@@ -170,6 +174,7 @@ export function AdminPage() {
           ) : (
             adminGroups.map((g) => {
               const visibleMemories = filterVisibleMemories(g.memories);
+              const metaRows = getMetaDisplayMemories(g.memories);
               const groupNote = getGroupDisplayNote(g.memories);
               return (
               <li
@@ -247,7 +252,7 @@ export function AdminPage() {
                       <p className="mt-1 text-sm text-black/75">{groupNote}</p>
                     </div>
                   ) : null}
-                  {visibleMemories.map((m) => (
+                  {metaRows.map((m) => (
                     <div key={m.id} className="rounded-xl bg-black/[0.02] px-3 py-2 text-sm">
                       <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-black/45">
                         <time dateTime={m.created_at}>
