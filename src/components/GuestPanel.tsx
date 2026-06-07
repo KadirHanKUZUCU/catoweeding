@@ -53,6 +53,7 @@ export function GuestPanel(props: {
 
   const assetsRef = useRef<{ photos: DraftPhoto[]; videos: DraftVideo[] }>({ photos: [], videos: [] });
   const submitLockRef = useRef(false);
+  const flushLockRef = useRef(false);
   useEffect(() => {
     assetsRef.current = { photos: draftPhotos, videos: draftVideos };
   }, [draftPhotos, draftVideos]);
@@ -74,28 +75,33 @@ export function GuestPanel(props: {
   }, [eventId, userId]);
 
   const flushOfflineQueue = useCallback(async () => {
-    if (!userId || !navigator.onLine) return;
-    const rows = (await listOfflineGuestSubmits()).filter((r) => r.eventId === eventId && r.userId === userId);
-    for (const row of rows) {
-      try {
-        const { photoFiles, videoFiles } = filesFromOffline(row);
-        await submitGuestMemories({
-          supabase,
-          eventId: row.eventId,
-          userId: row.userId,
-          fullName: row.fullName,
-          noteTrimmed: row.note,
-          photoFiles,
-          videoFiles,
-        });
-        await removeOfflineGuestSubmit(row.id);
-        toast.success("Kuyruktaki gönderi yüklendi.", { description: "Diğerleri de sırayla denenecek." });
-        await onChanged();
-      } catch {
-        break;
+    if (!userId || !navigator.onLine || flushLockRef.current || submitLockRef.current) return;
+    flushLockRef.current = true;
+    try {
+      const rows = (await listOfflineGuestSubmits()).filter((r) => r.eventId === eventId && r.userId === userId);
+      for (const row of rows) {
+        try {
+          const { photoFiles, videoFiles } = filesFromOffline(row);
+          await submitGuestMemories({
+            supabase,
+            eventId: row.eventId,
+            userId: row.userId,
+            fullName: row.fullName,
+            noteTrimmed: row.note,
+            photoFiles,
+            videoFiles,
+          });
+          await removeOfflineGuestSubmit(row.id);
+          toast.success("Kuyruktaki gönderi yüklendi.", { description: "Diğerleri de sırayla denenecek." });
+          await onChanged();
+        } catch {
+          break;
+        }
       }
+      await refreshOfflineCount();
+    } finally {
+      flushLockRef.current = false;
     }
-    await refreshOfflineCount();
   }, [eventId, userId, onChanged, refreshOfflineCount]);
 
   useEffect(() => {
@@ -502,6 +508,7 @@ export function GuestPanel(props: {
         <button
           type="submit"
           disabled={busy || !userId}
+          aria-busy={busy}
           className="w-full rounded-2xl bg-[var(--color-ink)] py-3 text-sm font-semibold text-[var(--color-parchment)] disabled:opacity-50"
         >
           {busy ? "Gönderiliyor…" : !userId ? "Oturum bekleniyor…" : "Anıyı gönder"}

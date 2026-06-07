@@ -1,34 +1,35 @@
 -- Çift gönderim temizliği — Supabase SQL Editor'da sırayla çalıştırın.
--- ÖNEMLİ: Önce 1. adım (notları silmeden çift kayıtları temizler).
+-- UYARI: Medyalı satırlara (photo_path / video_path) DOKUNMAZ.
 
--- 1) Aynı misafirin 30 sn içindeki çift gönderimlerini sil (en eskisini bırak)
---    Not boş olsa bile (daha önce NULL yapılmış tekrarlar dahil)
+-- 1) Yalnızca not-only: 30 sn içindeki çift tıklamaları sil (en eskisini bırak)
 WITH ordered AS (
   SELECT
     id,
+    photo_path,
+    video_path,
     created_at,
     LAG(created_at) OVER (
       PARTITION BY event_id, owner_id
       ORDER BY created_at ASC
     ) AS prev_at,
+    lower(trim(regexp_replace(coalesce(note, ''), '\s+', ' ', 'g'))) AS note_key,
     LAG(lower(trim(regexp_replace(coalesce(note, ''), '\s+', ' ', 'g')))) OVER (
       PARTITION BY event_id, owner_id
       ORDER BY created_at ASC
-    ) AS prev_note,
-    lower(trim(regexp_replace(coalesce(note, ''), '\s+', ' ', 'g'))) AS note_key
+    ) AS prev_note_key
   FROM public.memories
+  WHERE photo_path IS NULL
+    AND video_path IS NULL
+    AND trim(coalesce(note, '')) <> ''
 )
 DELETE FROM public.memories AS m
 USING ordered AS o
 WHERE m.id = o.id
   AND o.prev_at IS NOT NULL
   AND o.created_at - o.prev_at <= interval '30 seconds'
-  AND (
-    o.note_key = ''
-    OR o.note_key = coalesce(o.prev_note, '')
-  );
+  AND o.note_key = coalesce(o.prev_note_key, '');
 
--- 2) Aynı not metnine sahip tekrarlayan kayıtları sil (en eskisini bırak)
+-- 2) Not-only: aynı not metninin tekrarlarını sil
 WITH ranked AS (
   SELECT
     id,
@@ -40,7 +41,9 @@ WITH ranked AS (
       ORDER BY created_at ASC
     ) AS rn
   FROM public.memories
-  WHERE trim(coalesce(note, '')) <> ''
+  WHERE photo_path IS NULL
+    AND video_path IS NULL
+    AND trim(coalesce(note, '')) <> ''
 )
 DELETE FROM public.memories AS m
 USING ranked AS r
@@ -54,6 +57,5 @@ WHERE photo_path IS NULL
   AND trim(coalesce(note, '')) = '';
 
 -- Kontrol:
--- SELECT owner_id, note, photo_path, video_path, created_at
--- FROM public.memories
--- ORDER BY owner_id, created_at;
+-- SELECT id, note, photo_path, video_path, created_at
+-- FROM public.memories ORDER BY owner_id, created_at;

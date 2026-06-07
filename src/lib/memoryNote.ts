@@ -15,9 +15,9 @@ function normalizeNoteKey(note: string | null | undefined): string {
   return (note ?? "").trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-/** Aynı misafirin saniyeler içindeki çift tıklama kayıtlarını birleştirir. */
-export function collapseBurstDuplicates(memories: MemoryRow[]): MemoryRow[] {
-  const sorted = [...memories].sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at));
+/** Yalnızca not-only satırlarda çift tıklamayı birleştirir; medya asla elenmez. */
+function collapseNoteOnlyBurst(noteOnlyRows: MemoryRow[]): MemoryRow[] {
+  const sorted = [...noteOnlyRows].sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at));
   const kept: MemoryRow[] = [];
 
   for (const m of sorted) {
@@ -28,39 +28,30 @@ export function collapseBurstDuplicates(memories: MemoryRow[]): MemoryRow[] {
     }
 
     const delta = +new Date(m.created_at) - +new Date(prev.created_at);
-    const prevNote = normalizeNoteKey(prev.note);
-    const nextNote = normalizeNoteKey(m.note);
-    const rapid = delta >= 0 && delta <= BURST_WINDOW_MS;
-    const sameNote = nextNote !== "" && nextNote === prevNote;
-    const emptyAfterNote = nextNote === "" && prevNote !== "";
-
-    if (rapid && (sameNote || emptyAfterNote)) continue;
+    const sameNote = normalizeNoteKey(m.note) === normalizeNoteKey(prev.note);
+    if (delta >= 0 && delta <= BURST_WINDOW_MS && sameNote) continue;
     kept.push(m);
   }
 
-  return kept.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+  return kept;
 }
 
-/** Listede gösterilecek satırlar. */
+/** Görüntüleme listesi: tüm medya kalır, yalnızca not-only tekrarlar elenir. */
 export function filterVisibleMemories(memories: MemoryRow[]): MemoryRow[] {
-  const collapsed = collapseBurstDuplicates(memories.filter((m) => !isGhostMemory(m)));
+  const media = memories.filter((m) => hasMemoryMedia(m));
+  const noteOnly = memories.filter((m) => !hasMemoryMedia(m) && !isGhostMemory(m));
+  const collapsedNotes = collapseNoteOnlyBurst(noteOnly);
+
   const noteKeys = new Set<string>();
-  const kept: MemoryRow[] = [];
-
-  const chronological = [...collapsed].sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at));
-
-  for (const m of chronological) {
-    if (hasMemoryMedia(m)) {
-      kept.push(m);
-      continue;
-    }
+  const uniqueNotes: MemoryRow[] = [];
+  for (const m of collapsedNotes.sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at))) {
     const noteKey = normalizeNoteKey(m.note) || "\0";
     if (noteKeys.has(noteKey)) continue;
     noteKeys.add(noteKey);
-    kept.push(m);
+    uniqueNotes.push(m);
   }
 
-  return kept.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+  return [...media, ...uniqueNotes].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
 }
 
 export type NoteDisplayBlock = {
@@ -68,12 +59,12 @@ export type NoteDisplayBlock = {
   memory: MemoryRow;
 };
 
-/** Gruptaki benzersiz notlar (medya olsa da not kaybolmaz). */
+/** Gruptaki benzersiz notlar (medya satırlarındaki notlar dahil). */
 export function getNoteDisplayBlocks(memories: MemoryRow[]): NoteDisplayBlock[] {
   const noteKeys = new Set<string>();
   const blocks: NoteDisplayBlock[] = [];
 
-  const chronological = [...collapseBurstDuplicates(memories)]
+  const chronological = [...memories]
     .filter((m) => m.note?.trim())
     .sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at));
 
@@ -88,11 +79,18 @@ export function getNoteDisplayBlocks(memories: MemoryRow[]): NoteDisplayBlock[] 
   return blocks;
 }
 
-/** Alt bilgi: medya varsa dosya başına; yoksa tek zaman damgası. */
+/** Alt bilgi satırı: aynı batch medyada tek zaman damgası. */
 export function getFooterMetaRows(memories: MemoryRow[]): MemoryRow[] {
   const visible = filterVisibleMemories(memories);
   const grid = visible.filter(hasMemoryMedia);
-  if (grid.length > 0) return grid;
+
+  if (grid.length > 0) {
+    const oldest = grid.reduce((a, b) => (+new Date(a.created_at) <= +new Date(b.created_at) ? a : b));
+    const sameBatch = grid.every(
+      (m) => +new Date(m.created_at) - +new Date(oldest.created_at) <= BURST_WINDOW_MS,
+    );
+    return sameBatch ? [oldest] : grid;
+  }
 
   const noteBlocks = getNoteDisplayBlocks(memories);
   if (noteBlocks.length > 0) return noteBlocks.map((b) => b.memory);

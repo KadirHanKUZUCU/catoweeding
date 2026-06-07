@@ -189,7 +189,11 @@ export function AdminPage() {
                     Misafir {g.guestIndex}
                     <span className="ml-2 text-base font-normal text-black/60">· {g.fullName}</span>
                   </p>
-                  <span className="text-[11px] text-black/45">{visibleMemories.length} kayıt</span>
+                  <span className="text-[11px] text-black/45">
+                    {gridMemories.length > 0
+                      ? `${gridMemories.length} dosya${noteBlocks.length > 0 ? " · not var" : ""}`
+                      : `${visibleMemories.length} kayıt`}
+                  </span>
                 </div>
                 <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
                   {gridMemories.map((m) => {
